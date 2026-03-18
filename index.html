@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Match-3 Jewels Pro</title>
+    <style>
+        :root {
+            /* URL Foto Masjid Anda */
+            --bg-image: url('https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEhNZxra0Qf_LfVoBCC0Usg4PF9eNef9OQsX9fbw9nzplp9ImUQbJ4_lL4vdkaqQ1wwgZGOTQt8aTX7NVVZD6fQ4VNuAvObix-R9CSwG70aLZ5jiUO-6QcBiSAYypAW4yIehpYUFLlBRKqiQARhRRyLl-Lv7f88N6BJ4QjH11BZed3egI4uJ6Gau5j7WHvs/s320/IMG_20260318_185540.jpg');
+            
+            /* Grid Panel Transparan */
+            --grid-panel: rgba(255, 255, 255, 0.0); 
+            --accent: #ffd700;
+        }
+
+        body {
+            margin: 0; padding: 0;
+            display: flex; justify-content: center; align-items: center;
+            height: 100vh; font-family: 'Segoe UI', sans-serif;
+            overflow: hidden; touch-action: none;
+            background-image: var(--bg-image);
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+        }
+
+        /* Overlay gelap tipis agar grid menonjol */
+        body::before {
+            content: ""; position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0, 0, 0, 0.3);
+            z-index: -1;
+        }
+
+        .container { text-align: center; width: 100%; max-width: 360px; z-index: 1; }
+
+        .score-box {
+            background: var(--accent); color: #333;
+            padding: 8px 25px; border-radius: 50px;
+            margin-bottom: 20px; font-weight: 800; font-size: 24px;
+            display: inline-block; box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            border: 3px solid white;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(8, 1fr);
+            gap: 5px;
+            background: var(--grid-panel);
+            padding: 10px;
+            border-radius: 15px;
+            border: 2px solid rgba(255,255,255,0.3);
+            margin: 0 auto;
+            width: 300px; height: 300px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            /* Backdrop blur Opsional, hapus jika ingin benar-benar bening */
+            backdrop-filter: blur(3px); 
+        }
+
+        .grid div {
+            width: 32px; height: 32px;
+            cursor: pointer;
+            transition: transform 0.15s ease-out;
+            
+            /* GAYA UNTUK IKON/GAMBAR */
+            background-size: contain; /* Memastikan ikon utuh */
+            background-position: center;
+            background-repeat: no-repeat;
+            
+            /* Opsional: Sedikit bayangan agar ikon menonjol */
+            filter: drop-shadow(0 2px 3px rgba(0,0,0,0.5));
+        }
+
+        /* Animasi saat kotak dipilih/ditekan */
+        .grid div:active { 
+            transform: scale(1.1); 
+            filter: drop-shadow(0 0 5px white);
+        }
+
+        .instruction {
+            margin-top: 15px; color: white;
+            text-shadow: 2px 2px 8px rgba(0,0,0,1);
+            font-size: 14px; font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="score-box">💎 <span id="score">0</span></div>
+    <div class="grid" id="grid"></div>
+    <p class="instruction">Geser untuk mencocokkan permata</p>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const grid = document.querySelector('#grid');
+    const scoreDisplay = document.querySelector('#score');
+    const width = 8;
+    const squares = [];
+    let score = 0;
+
+    // --- BAGIAN UTAMA: GANTI WARNA DENGAN URL IKON SVG ---
+    // Saya menggunakan ikon permata default dari flaticon sebagai contoh.
+    // Anda bisa menggantinya dengan URL SVG/PNG Anda sendiri.
+    const jewelIcons = [
+        'url(https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEg0LiPGGuk7APjsb3OMGjPZDbqArZnHZdNhIb-xk1iJSwLcKOje7zGifsDNJPxD5vn199Evaq3BwXzLCkngUfbzGtXurI4zU-R5LkSF9HN_M3aoS7fntOloU6jxMRhTexdVwdNeRwJypYqUFiDjI79QDxIZPwKAPtJGDgGyb0SCAaeV-NUngGbIeaTMCS8/s200/001-bedug-drum.png)', // Merah
+        'url(https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEh0T-WqQvfI0SFRS42idp9ebnwBeNPJ5OvWXVf468T8LTTcyLicXYClJmxOgjiO4SA7KZ74PD5ZtGd0Auzn9F-6kgME6V9FPapTI1j-GV1VO3Rr4CGTMPy1hF_BTuvHaP4RIw8eLY_Qp99lsQPZjEe63SK5DW-dB-LvKwpbfqJ6uuXUiN-WeFX4-_CxJG0/s128/001-rub-el-hizb.png)', // Kuning
+        'url(https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEh-SQW4Jl0IA3mD5JXCkXw2RWZvQ2Tm4yngEJzyRU_0i29S4fWuTEkHn0nGiK-59Y11kJrz3V8hlFXh04HeTCbS5QUUpkjBd_ctJTAdjB91rxRDM6G8YBPHWNWqGsbaCwp97og4jcTxZf6VfMCFOxUKHUr1Hf3IzL7K-_KknqTGWlObKHnHpyhysLy7D1Q/s200/003-mosque.png)', // Biru
+        'url(https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEgGlqYlmy6B-_V_P1vYyTL4SwBcJ2SEuBACZHJT-PirTRRIiGq6zdX_GsiGq7_WBdpI0d103POJeksWRMXVFKHEXFu_xF1Jgtr049MTztYPG_cg46Xv8mN3y6nIz-3cx_zqHhcpoNBiBZfy-XeYnRaabWm7ezSo4F0yShDDfBvbefEltf1FSP3dUXIoN0Q/s200/002-muslim.png)', // Hijau
+        'url(https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEiKDkEMFkM7D5rYK0Cik8-EZsDCGq4srf6N9rsQ4Toxq6pIb9_ICLN51BpZNvSgDY7nTQJfDsCPJhRoWog3ePr5eqkp7MtuZHXYVgawyQeWT11N_AQ_j28JoBKQ7wpI2-PHnKkKJuD2SDe52V-iboioeMsU7Vhd51DxNFnM-yzhh6rdzRP4ktBPnH8sWUM/s200/004-allah.png)', // Ungu
+        'url(https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEifG8cyoORjpnj91c6rQyqj9A2CzwBAWIikH4IGQA2T6xEUh6WXbXXtsBuqPAPuj2jQlaoedLCgW0l5INR10CJPPklG9HWTqlANkDT4pDKsznGaq1eXxctZ2wiq_0IaCxRzEASfjwVTmrJidvY1mdL121CkpPmCEwWCpgNG7MUyDlER__7DuJ6QKuxJJuQ/s200/pngwing.com.png)'  // Oranye
+    ];
+
+    function createBoard() {
+        for (let i = 0; i < width * width; i++) {
+            const square = document.createElement('div');
+            square.setAttribute('id', i);
+            let randomJewel = jewelIcons[Math.floor(Math.random() * jewelIcons.length)];
+            
+            // GANTI: background-color -> background-image
+            square.style.backgroundImage = randomJewel;
+            
+            grid.appendChild(square);
+            squares.push(square);
+            
+            square.addEventListener('mousedown', startSwipe);
+            square.addEventListener('touchstart', startSwipe, {passive: false});
+            square.addEventListener('mouseup', endSwipe);
+            square.addEventListener('touchend', endSwipe);
+        }
+    }
+
+    let startX, startY, squareIdPressed;
+
+    function startSwipe(e) {
+        squareIdPressed = parseInt(this.id);
+        startX = e.type === 'touchstart' ? e.touches[0].clientX : e.clientX;
+        startY = e.type === 'touchstart' ? e.touches[0].clientY : e.clientY;
+    }
+
+    function endSwipe(e) {
+        let endX = e.type === 'touchend' ? e.changedTouches[0].clientX : e.clientX;
+        let endY = e.type === 'touchend' ? e.changedTouches[0].clientY : e.clientY;
+        let diffX = endX - startX;
+        let diffY = endY - startY;
+        let targetId;
+        if (Math.abs(diffX) > Math.abs(diffY)) {
+            if (Math.abs(diffX) > 20) targetId = diffX > 0 ? squareIdPressed + 1 : squareIdPressed - 1;
+        } else {
+            if (Math.abs(diffY) > 20) targetId = diffY > 0 ? squareIdPressed + width : squareIdPressed - width;
+        }
+        if (targetId !== undefined && squares[targetId]) {
+             if (Math.abs(diffX) > Math.abs(diffY)) {
+                 if (Math.floor(targetId/width) !== Math.floor(squareIdPressed/width)) return;
+             }
+             swapSquares(squareIdPressed, targetId);
+        }
+    }
+
+    function swapSquares(id1, id2) {
+        // GANTI: background-color -> background-image
+        let icon1 = squares[id1].style.backgroundImage;
+        let icon2 = squares[id2].style.backgroundImage;
+        squares[id1].style.backgroundImage = icon2;
+        squares[id2].style.backgroundImage = icon1;
+        
+        setTimeout(() => {
+            if (!checkMatches()) {
+                squares[id1].style.backgroundImage = icon1;
+                squares[id2].style.backgroundImage = icon2;
+            }
+        }, 200);
+    }
+
+    function checkMatches() {
+        let matched = false;
+        for (let i = 0; i < 64; i++) {
+            // GANTI: background-color -> background-image
+            let icon = squares[i].style.backgroundImage;
+            if (icon === '') continue;
+            
+            if (i % 8 < 6 && squares[i+1].style.backgroundImage === icon && squares[i+2].style.backgroundImage === icon) {
+                squares[i].style.backgroundImage = squares[i+1].style.backgroundImage = squares[i+2].style.backgroundImage = '';
+                score += 10; matched = true;
+            }
+            if (i < 48 && squares[i+width].style.backgroundImage === icon && squares[i+width*2].style.backgroundImage === icon) {
+                squares[i].style.backgroundImage = squares[i+width].style.backgroundImage = squares[i+width*2].style.backgroundImage = '';
+                score += 10; matched = true;
+            }
+        }
+        if (matched) {
+            scoreDisplay.innerHTML = score;
+            setTimeout(fillGaps, 250);
+        }
+        return matched;
+    }
+
+    function fillGaps() {
+        for (let i = 0; i < 64; i++) {
+            // GANTI: background-color -> background-image
+            if (squares[i].style.backgroundImage === '') {
+                squares[i].style.backgroundImage = jewelIcons[Math.floor(Math.random() * jewelIcons.length)];
+            }
+        }
+    }
+
+    createBoard();
+    setInterval(checkMatches, 400);
+});
+</script>
+</body>
+</html>
